@@ -19,22 +19,286 @@ routes = web.RouteTableDef()
 
 @routes.get("/", allow_head=True)
 async def root_route_handler(_):
-    return web.json_response(
-        {
-            "server_status": "running",
-            "uptime": get_readable_time(time.time() - StartTime),
-            "telegram_bot": "@" + DxStreamBot.username,
-            "connected_bots": len(multi_clients),
-            "loads": dict(
-                ("bot" + str(c + 1), l)
-                for c, (_, l) in enumerate(
-                    sorted(work_loads.items(), key=lambda x: x[1], reverse=True)
-                )
-            ),
-            "version": __version__,
-        }
-    )
+   
+    server_status = "running"
+    uptime = get_readable_time(time.time() - StartTime)
+    telegram_bot_username = "@" + DxStreamBot.username
+    connected_bots = len(multi_clients)
+    version = __version__
 
+    
+    sorted_loads = sorted(work_loads.items(), key=lambda x: x[1], reverse=True)
+    bot_loads_html = ""
+    for idx, (bot_id, load) in enumerate(sorted_loads, start=1):
+       
+        width_percent = min(load * 10, 100) if load else 0  
+        bot_loads_html += f"""
+        <div class="load-item">
+            <div class="load-label">Bot {idx} (ID: {bot_id})</div>
+            <div class="load-bar-bg"><div class="load-bar-fill" style="width: {width_percent}%"></div></div>
+            <div class="load-value">{load}</div>
+        </div>
+        """
+
+    
+    html_content = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>🤖 DxStreamBot Status Dashboard</title>
+        <style>
+            * {{
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+                font-family: 'Segoe UI', 'Roboto', sans-serif;
+            }}
+            body {{
+                background: linear-gradient(135deg, #0f172a, #1e293b);
+                color: #f8fafc;
+                min-height: 100vh;
+                padding: 20px;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            }}
+            .dashboard {{
+                width: 100%;
+                max-width: 1000px;
+                background: rgba(30, 41, 59, 0.7);
+                backdrop-filter: blur(10px);
+                border-radius: 24px;
+                padding: 40px;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+            }}
+            .header {{
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin-bottom: 30px;
+                padding-bottom: 20px;
+                border-bottom: 2px solid rgba(94, 234, 212, 0.3);
+            }}
+            .logo-title {{
+                display: flex;
+                align-items: center;
+                gap: 15px;
+            }}
+            .logo {{
+                font-size: 2.8rem;
+            }}
+            h1 {{
+                font-size: 2.2rem;
+                background: linear-gradient(to right, #5eead4, #38bdf8);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+            }}
+            .status-badge {{
+                background: linear-gradient(90deg, #10b981, #34d399);
+                color: white;
+                padding: 8px 20px;
+                border-radius: 50px;
+                font-weight: bold;
+                box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+            }}
+            .stats-grid {{
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                gap: 20px;
+                margin-bottom: 30px;
+            }}
+            .stat-card {{
+                background: rgba(51, 65, 85, 0.6);
+                padding: 25px;
+                border-radius: 16px;
+                border-left: 5px solid #5eead4;
+                transition: transform 0.3s, background 0.3s;
+            }}
+            .stat-card:hover {{
+                transform: translateY(-5px);
+                background: rgba(51, 65, 85, 0.9);
+            }}
+            .stat-label {{
+                color: #94a3b8;
+                font-size: 0.95rem;
+                margin-bottom: 8px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }}
+            .stat-value {{
+                font-size: 2rem;
+                font-weight: bold;
+                color: #e2e8f0;
+            }}
+            .load-section {{
+                background: rgba(51, 65, 85, 0.6);
+                padding: 25px;
+                border-radius: 16px;
+                margin-bottom: 30px;
+            }}
+            .load-section h2 {{
+                color: #5eead4;
+                margin-bottom: 20px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }}
+            .load-item {{
+                margin-bottom: 15px;
+                display: flex;
+                align-items: center;
+                gap: 15px;
+            }}
+            .load-label {{
+                width: 180px;
+                color: #cbd5e1;
+                font-weight: 500;
+            }}
+            .load-bar-bg {{
+                flex-grow: 1;
+                height: 20px;
+                background: #475569;
+                border-radius: 10px;
+                overflow: hidden;
+            }}
+            .load-bar-fill {{
+                height: 100%;
+                background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+                border-radius: 10px;
+                transition: width 1s ease-out;
+            }}
+            .load-value {{
+                width: 50px;
+                text-align: right;
+                font-weight: bold;
+                color: #fbbf24;
+            }}
+            .creator-section {{
+                text-align: center;
+                margin-top: 30px;
+                padding-top: 20px;
+                border-top: 1px solid rgba(255, 255, 255, 0.1);
+            }}
+            .creator-link {{
+                display: inline-flex;
+                align-items: center;
+                gap: 12px;
+                background: linear-gradient(90deg, #2563eb, #7c3aed);
+                color: white;
+                text-decoration: none;
+                padding: 14px 32px;
+                border-radius: 50px;
+                font-size: 1.1rem;
+                font-weight: bold;
+                transition: all 0.3s;
+                box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
+            }}
+            .creator-link:hover {{
+                transform: scale(1.05);
+                box-shadow: 0 10px 25px rgba(37, 99, 235, 0.6);
+                gap: 15px;
+            }}
+            .telegram-icon {{
+                font-size: 1.3rem;
+            }}
+            .footer {{
+                text-align: center;
+                margin-top: 25px;
+                color: #94a3b8;
+                font-size: 0.9rem;
+            }}
+            @media (max-width: 768px) {{
+                .dashboard {{
+                    padding: 25px;
+                }}
+                .header {{
+                    flex-direction: column;
+                    align-items: flex-start;
+                    gap: 15px;
+                }}
+                .load-item {{
+                    flex-direction: column;
+                    align-items: flex-start;
+                }}
+                .load-label {{
+                    width: 100%;
+                }}
+                .load-bar-bg {{
+                    width: 100%;
+                }}
+                .load-value {{
+                    text-align: left;
+                    width: 100%;
+                }}
+            }}
+        </style>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    </head>
+    <body>
+        <div class="dashboard">
+            <div class="header">
+                <div class="logo-title">
+                    <div class="logo">🤖</div>
+                    <h1>DxStreamBot Status Dashboard</h1>
+                </div>
+                <div class="status-badge">
+                    <i class="fas fa-circle" style="font-size: 0.7rem; margin-right: 8px;"></i> {server_status}
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label"><i class="far fa-clock"></i> Uptime</div>
+                    <div class="stat-value">{uptime}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label"><i class="fas fa-robot"></i> Connected Bots</div>
+                    <div class="stat-value">{connected_bots}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label"><i class="fas fa-code-branch"></i> Version</div>
+                    <div class="stat-value">v{version}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label"><i class="fab fa-telegram"></i> Bot Username</div>
+                    <div class="stat-value">{telegram_bot_username}</div>
+                </div>
+            </div>
+
+            <div class="load-section">
+                <h2><i class="fas fa-server"></i> Bot Load Distribution</h2>
+                {bot_loads_html if bot_loads_html else '<p style="color:#94a3b8;">No active bot loads to display.</p>'}
+            </div>
+
+            <div class="creator-section">
+                <a href="https://t.me/{DxStreamBot.username.replace('@', '')}" class="creator-link" target="_blank">
+                    <span class="telegram-icon"><i class="fab fa-telegram-plane"></i></span>
+                    Connect with Creator on Telegram
+                </a>
+            </div>
+
+            <div class="footer">
+                <p>Dashboard generated on {time.strftime('%Y-%m-%d %H:%M:%S')} | Powered by aiohttp[citation:4]</p>
+            </div>
+        </div>
+
+        <script>
+          
+            function refreshData() {{
+               
+                console.log('Data refresh triggered.');
+            }}
+            
+            // setTimeout(() => location.reload(), 60000);
+        </script>
+    </body>
+    </html>
+    """
+    return web.Response(text=html_content, content_type='text/html')
 
 @routes.get(r"/watch/{path:\S+}", allow_head=True)
 async def stream_handler(request: web.Request):
@@ -164,3 +428,4 @@ async def media_streamer(request: web.Request, id: int, secure_hash: str):
             "Accept-Ranges": "bytes",
         },
     )
+
