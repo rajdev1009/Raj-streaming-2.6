@@ -87,4 +87,3 @@ async def broadcast_(c, m):
             quote=True
         )
     os.remove('broadcast.txt')
-
